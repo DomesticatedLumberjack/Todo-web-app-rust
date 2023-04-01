@@ -1,0 +1,84 @@
+*{
+    font-family: 'Courier New', Courier, monospace;
+    color:#FFFFFF;
+}
+
+body{
+    background-color:rgb(82, 82, 82);
+}
+
+button{
+    display:inline-block;
+    padding:0.35em 1.2em;
+    border:0.1em solid #FFFFFF;
+    color:#FFFFFF;
+    border-radius:0.12em;
+    box-sizing: border-box;
+    text-decoration:none;
+    font-weight:300;
+    text-align:center;
+    background-color: transparent;
+}
+
+.login{
+    margin-left: auto;
+    margin-right: auto;
+    width: min-content;
+    vertical-align: middle;
+}
+
+.login-button{
+    margin-top: 10px;
+    vertical-align: middle;
+    width: 100%;
+}
+
+.logout-button{
+    position: absolute;
+    top: 10px;
+    left: 10px;
+}
+
+.username{
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 20px;
+}
+
+button:hover{
+    color:#000000;
+    background-color:#FFFFFF;
+}
+
+.vertical-center {
+    margin: 0;
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    -ms-transform: translateY(-50%);
+    transform: translateY(-50%);
+    -ms-transform: translateX(-50%);
+    transform: translateX(-50%);
+}
+
+table{
+    margin: 50px auto auto auto;
+    text-align: center;
+}
+
+td:nth-child(2){
+    text-align: left;
+}
+
+input[type=checkbox]{
+    position: relative;
+    vertical-align: middle;
+    margin-right: 20px;
+}
+
+.bottom-tag{
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+}
