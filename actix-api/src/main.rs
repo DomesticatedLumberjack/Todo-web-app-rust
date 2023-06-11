@@ -1,116 +1,21 @@
-mod service;
-mod model;
+mod handlers;
+mod database;
+mod config;
 
+use std::{time::SystemTime};
 use actix_cors::Cors;
-use actix_web::{
-    web::{
-        self, Data
-    }, 
-    App, 
-    HttpServer, 
-    main, 
-    post, 
-    HttpResponse, 
-    get, delete, put
-};
-use model::{
-    request::task_update_request::TaskUpdateRequest, 
-    db::task::Task
-};
-use crate::{
-    model::{
-        request::{
-            create_user_request::CreateUserRequest, 
-            task_create_request::TaskCreateRequest, 
-            task_delete_request::TaskDeleteRequest
-        }
-    }, 
-    service::db_repo::DbRepo
-};
+use actix_jwt_auth_middleware::{Authority, TokenSigner, use_jwt::UseJWTOnApp};
+use actix_web::{dev::Service as _, web::{Data, scope, get, post, delete, put}, HttpServer, App, main};
+use config::config::Config;
+use database::db_client::DbClient;
+use handlers::{user::{create_user, get_all_users, get_user, delete_user}, task::{add_task, get_all_tasks_for_user, update_task, delete_task}};
+use log::{info, error};
+use model::db::user::User;
+use jwt_compact::alg::{Hs256, Hs256Key};
+use futures_util::future::FutureExt;
+use uuid::Uuid;
+use crate::handlers::user::login_user;
 
-
-#[post("/user")]
-pub async fn add_user(db: Data<DbRepo>, json: web::Json<CreateUserRequest>) -> HttpResponse{
-     let new_user = CreateUserRequest {
-         username: json.username.to_owned(),
-         password: json.password.to_owned()
-    };
-
-    let result = db.create_user(new_user.username, new_user.password).await;
-
-    match result {
-        Ok(x) => HttpResponse::Ok().json(x.inserted_id),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-    }
-}
-
-#[get("/user/{id}")]
-pub async fn get_user(db: Data<DbRepo>, id: web::Path<String>) -> HttpResponse{
-    let user_id = id.to_owned();
-    let result = db.get_user(user_id).await;
-    match result {
-        Ok(x) => match x {
-            Some(user) => HttpResponse::Ok().json(user),
-            None => HttpResponse::NotFound().finish(),
-        },
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-    }
-}
-
-#[get("/user")]
-pub async fn get_all_users(db: Data<DbRepo>) -> HttpResponse{
-    let result = db.get_all_users().await;
-    match result {
-        Ok(users) => HttpResponse::Ok().json(users),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-    }
-}
-
-#[post("/user/task")]
-pub async fn add_task_to_user(db: Data<DbRepo>, json: web::Json<TaskCreateRequest>) -> HttpResponse {
-    let result = db.create_task(json.user_id.to_owned(), json.description.to_owned(), json.complete.to_owned()).await;
-    match result{
-        Ok(update_result) => HttpResponse::Ok().json(update_result),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string())
-    }
-}
-
-#[delete("/user/task")]
-pub async fn delete_task(db: Data<DbRepo>, json: web::Json<TaskDeleteRequest>) -> HttpResponse{
-    let result = db.delete_task(json.user_id.to_owned(), json.task_id.to_owned()).await;
-    match result {
-        Ok(update_result) => {
-            if update_result.modified_count > 0 {
-                HttpResponse::Ok().finish()
-            }
-            else{
-                HttpResponse::NotFound().finish()
-            }
-        },
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string())
-    }
-}
-
-#[put("/user/task")]
-pub async fn update_task(db: Data<DbRepo>, task: web::Json<TaskUpdateRequest>) -> HttpResponse{
-    let updated_task = Task{
-        _id: task.task_id.to_owned(),
-        description: task.description.to_owned(),
-        complete: task.complete
-    };
-    let result = db.update_task(task.user_id.to_owned(), updated_task).await;
-    match result{
-        Ok(update_result) => {
-            if update_result.modified_count > 0 {
-                HttpResponse::Ok().finish()
-            }
-            else{
-                HttpResponse::NoContent().finish()
-            }
-        },
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string())
-    }
-}
 
 #[main]
 async fn main() -> std::io::Result<()> {
@@ -118,27 +23,77 @@ async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "debug");
     env_logger::init();
 
-    
-
     let bind_info = ("127.0.0.1", 5000);
-    let db = DbRepo::init().await;
-    let data = Data::new(db);
+    info!("Starting server on {}:{}", bind_info.0, bind_info.1);
+    
+    let config = Config::init();
+    let connection_string = config.get("DATABASE_URL").expect("Unable to retrieve db connection string from env");
+    let db = DbClient::init(&connection_string).await;
+    
+    let config_data = Data::new(config);
+    let db_data = Data::new(db);
+
+    let secret_key = Hs256Key::new(Uuid::new_v4()); //Just get a randomized uuid for a key for now
 
     HttpServer::new(move || {
+        //Set up cors
         let cors = Cors::default()
             .allow_any_origin()
             .allow_any_header()
             .allow_any_method();
 
+        //Set up jwt auth
+        let auth = Authority::<User, Hs256, _, _>::new()
+            .refresh_authorizer(|| async move {Ok(())})
+            .token_signer(Some(
+                TokenSigner::new()
+                    .signing_key(secret_key.clone())
+                    .algorithm(Hs256)
+                    .build()
+                    .expect("Unable to create token signer")
+            ))
+            .enable_header_tokens(true) //Force to check header instead of weird default cookie auth
+            .verifying_key(secret_key.clone())
+            .build()
+            .expect("Unable to create auth middleware");
+
         App::new()
             .wrap(cors)
-            .app_data(data.clone())
-            .service(add_user)
-            .service(get_user)
-            .service(get_all_users)
-            .service(add_task_to_user)
-            .service(delete_task)
-            .service(update_task)
+            .wrap_fn(|req, srv|{
+                let now = SystemTime::now();
+                let method = req.method().to_string();
+                let path = req.path().to_string();
+                srv.call(req).map(move |res| {
+                    match now.elapsed() {
+                        Ok(elapsed) => info!("{} request to {} completed in {}ms", method, path, elapsed.as_millis()),
+                        Err(e) => error!("Unable to calc request time: {}", e.to_string())
+                    }
+                    res
+                })
+            })
+            .app_data(db_data.clone())
+            .app_data(config_data.clone())
+            .route("/login", post().to(login_user))
+            .route("/user", post().to(create_user))
+            .use_jwt(auth,
+                scope("/user")
+                    .route("", get().to(get_all_users))
+                    .service(
+                        scope("/{user_id}")
+                            .route("", delete().to(delete_user))
+                            .route("", get().to(get_user))
+                            .service(
+                                scope("/task")
+                                    .route("", post().to(add_task))
+                                    .route("", get().to(get_all_tasks_for_user))
+                                    .service(
+                                        scope("/{task_id}")
+                                            .route("", put().to(update_task))
+                                            .route("", delete().to(delete_task))
+                                    )
+                            )
+                    )
+            )
     })
     .bind(bind_info)?
     .run()

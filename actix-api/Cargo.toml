@@ -8,24 +8,26 @@ edition = "2021"
 [dependencies]
 actix-web = "4"
 actix-cors = "0.6.4"
-mongodb = "2.4.0"
 r2d2 = "0.8.10"
 serde = "1.0.154"
 futures = "0.3"
 env_logger = "0.10.0"
 rust-argon2 = "1.0"
+model = { path = "../model"}
+sqlx = { version = "0.6.2", features = ["runtime-tokio-native-tls", "sqlite"]}
+dotenv = "0.15.0"
+futures-util = "0.3.28"
+actix-jwt-auth-middleware = "0.3.0"
+jwt-compact = "0.7.0"
+log = "0.4.18"
+actix-web-httpauth = "0.8.0"
+time = "0.1"
+
 
 [dependencies.uuid]
-version = "1.3.0"
+version = "1.3.3"
 features = [
     "v4",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
     "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
 ]
-
-# [profile.release]
-# opt-level = "z"     # Optimize for size.
-# lto = true          # Enable Link Time Optimization
-# codegen-units = 1   # Reduce number of codegen units to increase optimizations.
-# panic = "abort"     # Abort on panic
-# strip = true        # Automatically strip symbols from the binary.

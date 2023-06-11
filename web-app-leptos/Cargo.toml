@@ -1,0 +1,21 @@
+[package]
+name = "web-app-leptos"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+gloo-net = "0.2.6"
+leptos = "0.3.0"
+leptos_router = {version = "0.3.0", features = ["csr"] }
+model = { path = "../model"}
+wasm-bindgen = "0.2.86"
+wasm-bindgen-futures = "0.4.36"
+console_error_panic_hook = "0.1.7"
+console_log = "1"
+log = "0.4"
+
+# [[workspace.metadata.leptos]]
+# # project name
+# name = "leptos-project"
+# bin-package = "."
+# lib-package = "."
