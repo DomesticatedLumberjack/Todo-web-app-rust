@@ -1,6 +1,0 @@
-{
-    "rust-analyzer.linkedProjects": [
-        "./web-app-leptos/Cargo.toml"
-    ],
-    "rust-analyzer.showUnlinkedFileNotification": false
-}
