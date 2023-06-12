@@ -15,6 +15,12 @@ fn hash_str(input_str: &str, config: Data<Config>) -> String{
 pub async fn create_user(db: Data<DbClient>, config: Data<Config>, request: Json<CreateUserRequest>, token_signer: Data<TokenSigner<model::db::user::User, Hs256>>) -> HttpResponse{
     let password_hash = hash_str(&request.password, config);
 
+    let existing_user = db.get_user_by_username(&request.username).await;
+
+    if existing_user.is_ok(){
+        return HttpResponse::Conflict().body(format!("User with username {} already exists", request.username));
+    }
+
     match db.create_user(&request.username, &password_hash).await {
         Ok(user) => {
             let token = token_signer.create_signed_token(&user, Duration::days(1)).expect("Unable to create signed token for newly created user");

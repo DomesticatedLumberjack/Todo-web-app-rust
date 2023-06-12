@@ -1,6 +1,6 @@
-use actix_web::http::header::Date;
+use actix_web::{http::header::Date};
 use model::db::{user::User, task::Task};
-use sqlx::{SqlitePool, Pool, Sqlite, Error, Row};
+use sqlx::{SqlitePool, Pool, Sqlite, Error, Row, sqlite::SqliteConnectOptions};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -10,9 +10,20 @@ pub struct DbClient{
 
 impl DbClient{
     pub async fn init(connection_string: &str) -> DbClient{
-        let new_pool = SqlitePool::connect(connection_string)
+        let options: SqliteConnectOptions = SqliteConnectOptions::new()
+            .create_if_missing(true)
+            .filename(connection_string);
+            
+
+
+        let new_pool = SqlitePool::connect_with(options) 
             .await
             .expect("Unable to create db pool");
+
+        sqlx::migrate!("./migrations")
+            .run(&new_pool)
+            .await
+            .expect("Error while running db migrations");
         
         DbClient{
             pool: new_pool

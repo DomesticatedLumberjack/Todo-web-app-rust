@@ -1,5 +1,5 @@
 use gloo_net::http::Request;
-use leptos::{*, ev::MouseEvent};
+use leptos::*;
 use leptos_router::{use_navigate, NavigateOptions};
 use model::{response::{user::User, login::Login}, request::{login_request::LoginRequest, create_user_request::CreateUserRequest}};
 

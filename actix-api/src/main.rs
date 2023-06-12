@@ -2,17 +2,15 @@ mod handlers;
 mod database;
 mod config;
 
-use std::{time::SystemTime};
 use actix_cors::Cors;
 use actix_jwt_auth_middleware::{Authority, TokenSigner, use_jwt::UseJWTOnApp};
-use actix_web::{dev::Service as _, web::{Data, scope, get, post, delete, put}, HttpServer, App, main};
+use actix_web::{web::{Data, scope, get, post, delete, put}, HttpServer, App, main};
 use config::config::Config;
 use database::db_client::DbClient;
 use handlers::{user::{create_user, get_all_users, get_user, delete_user}, task::{add_task, get_all_tasks_for_user, update_task, delete_task}};
-use log::{info, error};
+use log::{info};
 use model::db::user::User;
 use jwt_compact::alg::{Hs256, Hs256Key};
-use futures_util::future::FutureExt;
 use uuid::Uuid;
 use crate::handlers::user::login_user;
 
@@ -59,18 +57,6 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .wrap(cors)
-            .wrap_fn(|req, srv|{
-                let now = SystemTime::now();
-                let method = req.method().to_string();
-                let path = req.path().to_string();
-                srv.call(req).map(move |res| {
-                    match now.elapsed() {
-                        Ok(elapsed) => info!("{} request to {} completed in {}ms", method, path, elapsed.as_millis()),
-                        Err(e) => error!("Unable to calc request time: {}", e.to_string())
-                    }
-                    res
-                })
-            })
             .app_data(db_data.clone())
             .app_data(config_data.clone())
             .route("/login", post().to(login_user))
